@@ -1,20 +1,21 @@
 "use client";
 
 import * as React from "react";
-import { PropertyRecord } from "./types";
+import { PropertyRecord, ApproachState } from "./types";
 import {
   fmtCurrency,
   fmtCurrencyCents,
   fmtInt,
   fmtDecimal,
   fmtSitus,
-  hasApproach,
 } from "./format";
 
 interface Props {
   record: PropertyRecord;
   included: boolean;
   onToggle: () => void;
+  approachState: ApproachState;
+  onToggleApproach: (approach: keyof ApproachState) => void;
 }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -52,16 +53,11 @@ function DataRow({
   );
 }
 
-export function CaseSection({ record: r, included, onToggle }: Props) {
-  const [showSqFt, setShowSqFt] = React.useState(r.Land_ApprMethod === "SQ");
-
-  const isCost = hasApproach(r.ApprMethod, "C");
-  const isIncome = hasApproach(r.ApprMethod, "I");
-  const isMarket = hasApproach(r.ApprMethod, "M");
-
-  const [costOpen, setCostOpen] = React.useState(isCost);
-  const [incomeOpen, setIncomeOpen] = React.useState(isIncome);
-  const [marketOpen, setMarketOpen] = React.useState(isMarket);
+export function CaseSection({ record: r, included, onToggle, approachState, onToggleApproach }: Props) {
+  const showSqFt = approachState.showSqFt;
+  const costOpen = approachState.cost;
+  const incomeOpen = approachState.income;
+  const marketOpen = approachState.market;
 
   const situsLines = fmtSitus(r.Situs);
 
@@ -128,13 +124,13 @@ export function CaseSection({ record: r, included, onToggle }: Props) {
               </td>
               <td className="px-4 py-2 text-right text-sm font-semibold text-foreground">
                 {showSqFt
-                  ? `${fmtCurrency(r.Land_SqFt_UP)} per sq. ft.`
-                  : `${fmtCurrency(r.Land_Acres_UP)} per acre`}
+                  ? `${fmtCurrencyCents(r.Land_SqFt_UP)} per sq. ft.`
+                  : `${fmtCurrencyCents(r.Land_Acres_UP)} per acre`}
               </td>
               <td className="px-4 py-2 text-left">
                 <button
                   type="button"
-                  onClick={() => setShowSqFt((v) => !v)}
+                  onClick={() => onToggleApproach("showSqFt")}
                   className="rounded border border-border px-2 py-0.5 text-xs text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
                 >
                   {showSqFt ? "Convert to acres" : "Convert to sq. ft."}
@@ -160,7 +156,7 @@ export function CaseSection({ record: r, included, onToggle }: Props) {
               <td className="px-4 py-2 text-right text-sm text-muted-foreground">
                 <button
                   type="button"
-                  onClick={() => setCostOpen((v) => !v)}
+                  onClick={() => onToggleApproach("cost")}
                   className="flex items-center gap-2 ml-auto text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <span className={`inline-block h-3 w-3 rounded-sm border transition-colors ${costOpen ? "border-primary bg-primary" : "border-muted-foreground bg-transparent"}`} />
@@ -183,7 +179,7 @@ export function CaseSection({ record: r, included, onToggle }: Props) {
               <td className="px-4 py-2 text-right text-sm text-muted-foreground">
                 <button
                   type="button"
-                  onClick={() => setIncomeOpen((v) => !v)}
+                  onClick={() => onToggleApproach("income")}
                   className="flex items-center gap-2 ml-auto text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <span className={`inline-block h-3 w-3 rounded-sm border transition-colors ${incomeOpen ? "border-primary bg-primary" : "border-muted-foreground bg-transparent"}`} />
@@ -233,7 +229,7 @@ export function CaseSection({ record: r, included, onToggle }: Props) {
               <td className="px-4 py-2 text-right text-sm text-muted-foreground">
                 <button
                   type="button"
-                  onClick={() => setMarketOpen((v) => !v)}
+                  onClick={() => onToggleApproach("market")}
                   className="flex items-center gap-2 ml-auto text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <span className={`inline-block h-3 w-3 rounded-sm border transition-colors ${marketOpen ? "border-primary bg-primary" : "border-muted-foreground bg-transparent"}`} />

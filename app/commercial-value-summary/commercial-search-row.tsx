@@ -15,6 +15,7 @@ interface Props {
   onDownload?: () => void;
   hasResults: boolean;
   isLoading: boolean;
+  pdfLoading?: boolean;
 }
 
 export function CommercialSearchRow({
@@ -23,6 +24,7 @@ export function CommercialSearchRow({
   onDownload,
   hasResults,
   isLoading,
+  pdfLoading = false,
 }: Props) {
   const [propertyId, setPropertyId] = React.useState("");
   const [year, setYear] = React.useState(String(currentYear));
@@ -76,22 +78,22 @@ export function CommercialSearchRow({
         <button
           type="button"
           onClick={onView}
-          disabled={!hasResults}
+          disabled={!hasResults || pdfLoading}
           aria-label="View report"
           className="flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />
-          View
+          {pdfLoading ? "Building…" : "View"}
         </button>
         <button
           type="button"
           onClick={onDownload}
-          disabled={!hasResults}
+          disabled={!hasResults || pdfLoading}
           aria-label="Download report"
           className="flex h-8 items-center gap-1.5 rounded-md border border-border px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Download
+          {pdfLoading ? "Building…" : "Download"}
         </button>
       </div>
     </form>

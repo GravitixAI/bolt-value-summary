@@ -74,3 +74,11 @@ export interface PropertyRecord {
 export interface CommercialValueSummaryResponse {
   data: PropertyRecord[];
 }
+
+export interface ApproachState {
+  cost: boolean;
+  income: boolean;
+  market: boolean;
+  /** true = show "Price per sq. ft.", false = show "Price per acre" */
+  showSqFt: boolean;
+}
