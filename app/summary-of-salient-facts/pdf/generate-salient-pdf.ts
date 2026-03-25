@@ -17,9 +17,8 @@ async function buildBlob(
   included: Set<number>,
   year: string
 ): Promise<Blob> {
-  return pdf(
-    React.createElement(SalientFactsPdf, { records, included, year })
-  ).toBlob();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return pdf(React.createElement(SalientFactsPdf, { records, included, year }) as any).toBlob();
 }
 
 // ---------------------------------------------------------------------------

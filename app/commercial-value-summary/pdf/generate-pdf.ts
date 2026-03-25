@@ -1,5 +1,7 @@
 import { pdf } from "@react-pdf/renderer";
+import type { DocumentProps } from "@react-pdf/renderer";
 import * as React from "react";
+import type { ReactElement, JSXElementConstructor } from "react";
 import { CommercialValueSummaryPdf } from "./CommercialValueSummaryPdf";
 import { PropertyRecord, ApproachState } from "../types";
 import type { GalleryEntry } from "../image-fingerprint";
@@ -52,7 +54,7 @@ function buildFilename(records: PropertyRecord[]): string {
   return `${year}_Commercial_Value_Summary_${pid}.pdf`;
 }
 
-function createElement(
+function buildElement(
   records: PropertyRecord[],
   included: Set<number>,
   totalRecommended: number,
@@ -60,7 +62,7 @@ function createElement(
   galleryEntries: GalleryEntry[],
   pageMap: Map<number, number>,
   approachStates: Map<number, ApproachState>
-) {
+): ReactElement<DocumentProps, string | JSXElementConstructor<DocumentProps>> {
   return React.createElement(CommercialValueSummaryPdf, {
     records,
     included,
@@ -69,7 +71,8 @@ function createElement(
     galleryEntries,
     pageMap,
     approachStates,
-  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }) as any;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +91,7 @@ async function buildBlob(
 
   // Pass 1 — render without page numbers (overview table always present, so always two-pass)
   const pass1Blob = await pdf(
-    createElement(records, included, totalRecommended, totalAssessed, galleryEntries, new Map(), approachStates)
+    buildElement(records, included, totalRecommended, totalAssessed, galleryEntries, new Map(), approachStates)
   ).toBlob();
 
   // Extract accurate page numbers from the rendered PDF
@@ -96,7 +99,7 @@ async function buildBlob(
 
   // Pass 2 — re-render with the correct pageMap
   return pdf(
-    createElement(records, included, totalRecommended, totalAssessed, galleryEntries, pageMap, approachStates)
+    buildElement(records, included, totalRecommended, totalAssessed, galleryEntries, pageMap, approachStates)
   ).toBlob();
 }
 
