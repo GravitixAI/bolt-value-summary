@@ -30,6 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# application logs (BOLT Server reads from /logs at runtime)
+/logs
+
 # env files (can opt-in for committing if needed)
 .env*
 
