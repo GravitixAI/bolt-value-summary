@@ -492,7 +492,7 @@ export function CommercialValueSummaryPdf({
           <CaseSectionPdf
             key={r.PropID}
             record={r}
-            approachState={approachStates.get(r.PropID) ?? { cost: false, income: false, market: false }}
+            approachState={approachStates.get(r.PropID) ?? { cost: false, income: false, market: false, showSqFt: true }}
             year={records[0]?.Year ?? ""}
           />
         ))}

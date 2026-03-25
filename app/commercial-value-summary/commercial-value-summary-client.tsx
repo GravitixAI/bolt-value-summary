@@ -248,7 +248,7 @@ export function CommercialValueSummaryClient() {
                     record={r}
                     included={included.has(r.PropID)}
                     onToggle={() => toggleIncluded(r.PropID)}
-                    approachState={approachStates.get(r.PropID) ?? { cost: false, income: false, market: false }}
+                    approachState={approachStates.get(r.PropID) ?? { cost: false, income: false, market: false, showSqFt: true }}
                     onToggleApproach={(approach) => toggleApproach(r.PropID, approach)}
                   />
                 ))}
