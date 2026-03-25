@@ -39,6 +39,86 @@ export default nextConfig;
 
 > **`basePath`** must be set before building. The built output bakes this path into all asset URLs. Changing it after building requires a full rebuild.
 
+### Raw asset URLs must include the base path
+
+Next.js automatically prepends `basePath` to paths used through its own APIs (`<Link>`, `<Image>`, `next/font`, the `metadata` export's `icons`, etc.). However, **plain absolute paths in raw HTML attributes or client-side DOM manipulation are not rewritten** — they resolve to the domain root instead of `/bolt-value-summary/`.
+
+**Affected patterns and their fixes:**
+
+| Location | Bad (resolves to domain root) | Fix |
+|----------|-------------------------------|-----|
+| `<link href="..." />` in JSX | `href="/themes/foo.css"` | prefix with `NEXT_PUBLIC_BASE_PATH` |
+| `document.createElement("link")` | `link.href = "/themes/foo.css"` | prefix with `NEXT_PUBLIC_BASE_PATH` |
+| `metadata` `icons` / `manifest` in `layout.tsx` | `url: "/favicon.png"` | prefix with `NEXT_PUBLIC_BASE_PATH` |
+| `public/site.webmanifest` icon `src` values | `"src": "/android-chrome-192x192.png"` | hardcode full sub-path |
+| Raw `<img src="..." />` in components | `src="/android-chrome-192x192.png"` | prefix `src` with `NEXT_PUBLIC_BASE_PATH` |
+
+**Step 1 — add `NEXT_PUBLIC_BASE_PATH` to `.env.local`:**
+
+```env
+NEXT_PUBLIC_BASE_PATH=/bolt-value-summary
+```
+
+> `NEXT_PUBLIC_` variables are inlined at **build time**. This value must be present when `pnpm build` runs, and must match the `basePath` in `next.config.ts`.
+
+**Step 2 — prefix raw paths in code:**
+
+```tsx
+// app/layout.tsx — metadata icons and manifest
+const bp = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+export const metadata: Metadata = {
+  icons: {
+    icon: [
+      { url: `${bp}/favicon-16x16.png`, sizes: "16x16", type: "image/png" },
+      { url: `${bp}/favicon-32x32.png`, sizes: "32x32", type: "image/png" },
+    ],
+  },
+  manifest: `${bp}/site.webmanifest`,
+};
+```
+
+```ts
+// Client-side DOM manipulation (e.g. theme-provider.tsx)
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+link.href = `${basePath}/themes/${themeConfig.cssFile}`;
+```
+
+**Step 3 — fix `public/site.webmanifest`:**
+
+`site.webmanifest` is served as a static file — no build-time substitution occurs. Hardcode the sub-path directly in the icon `src` values:
+
+```json
+{
+  "icons": [
+    { "src": "/bolt-value-summary/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/bolt-value-summary/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+```
+
+> If the deployment sub-path ever changes, update `site.webmanifest` manually alongside `next.config.ts` and `.env.local`.
+
+**Step 4 — prefix `<img src>` with `NEXT_PUBLIC_BASE_PATH`:**
+
+Raw `<img src="/logo.png" />` tags bypass Next.js entirely and will 404 under a sub-path. `next/image` `<Image>` is **not** a reliable fix here — in Next.js 16.x with `unoptimized`, it still omits the `basePath` prefix. Use a raw `<img>` with the env var prefix instead:
+
+```tsx
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+// eslint-disable-next-line @next/next/no-img-element
+<img
+  src={`${basePath}/android-chrome-192x192.png`}
+  alt="Logo"
+  width={36}
+  height={36}
+/>
+```
+
+> Keep the `eslint-disable` comment — it documents that the raw `<img>` is intentional and that the basePath prefix is handling what `next/image` would normally do.
+
+**Do not use `<link rel="preload">` for theme CSS** — Next.js does not rewrite its `href`, and the browser will warn that the preloaded resource was not used within a few seconds of the load event (because the theme provider injects the stylesheet client-side after load). Remove any such preload tags; the theme provider handles loading on its own.
+
 ---
 
 ## Prerequisites
@@ -252,6 +332,33 @@ node server.js
 
 ### Theme not loading
 - Confirm `public\themes\` was copied to the server
+
+### Logo or image assets return 404 in components
+- Symptom: `GET /android-chrome-192x192.png 404` (or any image served from `public/`)
+- Cause: a raw `<img src="/image.png" />` tag is used — Next.js does not rewrite its `src`
+- Fix: prefix `src` with `process.env.NEXT_PUBLIC_BASE_PATH` (see [Raw asset URLs must include the base path](#raw-asset-urls-must-include-the-base-path))
+- **Do not use `next/image` `<Image>` as the fix** — in Next.js 16.x, `<Image unoptimized>` still omits the `basePath` prefix and the 404 persists; the env var prefix on a plain `<img>` is the correct approach
+
+### `/_next/image?url=%2F...` returns 500
+- Symptom: `GET /bolt-value-summary/_next/image?url=%2Fimage.png&w=48&q=75 500`
+- Cause: `next/image` routes the image through its optimizer, which constructs the `url` query parameter without the `basePath` prefix
+- Fix: switch back to a raw `<img>` with `src` prefixed by `process.env.NEXT_PUBLIC_BASE_PATH` — do not use `next/image` for static assets under a sub-path in this version
+
+### CSS / theme assets load from the wrong path (domain root instead of `/bolt-value-summary/`)
+- Symptom: browser requests `https://domain/themes/usa.css` instead of `https://domain/bolt-value-summary/themes/usa.css`
+- Cause: a `<link>` tag or `document.createElement("link")` uses a hardcoded absolute path like `/themes/foo.css` — Next.js does **not** rewrite these
+- Fix: prefix with `process.env.NEXT_PUBLIC_BASE_PATH` and ensure `NEXT_PUBLIC_BASE_PATH=/bolt-value-summary` is in `.env.local` before building (see [Raw asset URLs must include the base path](#raw-asset-urls-must-include-the-base-path))
+
+### Favicons, manifest, or PWA icons return 404
+- Symptom: `GET /favicon-16x16.png 404`, `GET /site.webmanifest 404`, `GET /android-chrome-192x192.png 404`
+- Cause: `metadata` `icons` / `manifest` in `app/layout.tsx` use bare paths like `/favicon.png` which resolve to the domain root, not the sub-path
+- Fix: prefix all `metadata` icon URLs and the `manifest` value with `process.env.NEXT_PUBLIC_BASE_PATH` (see [Raw asset URLs must include the base path](#raw-asset-urls-must-include-the-base-path))
+- Also fix `public/site.webmanifest` — its `src` values are static and must hardcode the full sub-path (e.g. `/bolt-value-summary/android-chrome-192x192.png`)
+
+### `link rel="preload"` warning in the browser console
+- Symptom: `The resource .../themes/default.css was preloaded using link preload but not used within a few seconds from the window's load event`
+- Cause: a `<link rel="preload">` tag targets a theme CSS file, but the theme provider injects the stylesheet client-side after the load event — the browser never sees a matching consumer for the preload
+- Fix: remove the `<link rel="preload">` tag from `app/layout.tsx`; the theme provider loads the CSS on its own
 
 ### `HTTP_X_REMOTE_USER` not received
 - Verify the `serverVariables` block is present in the root `web.config` proxy rule

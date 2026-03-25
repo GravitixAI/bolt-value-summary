@@ -47,7 +47,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const link = document.createElement("link");
     link.id = "theme-stylesheet";
     link.rel = "stylesheet";
-    link.href = `/themes/${themeConfig.cssFile}`;
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    link.href = `${basePath}/themes/${themeConfig.cssFile}`;
     
     // Add onload handler to ensure CSS is loaded
     link.onload = () => {

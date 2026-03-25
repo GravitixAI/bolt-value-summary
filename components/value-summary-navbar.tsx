@@ -7,11 +7,13 @@ import { Home } from "lucide-react";
 import { AdvancedThemeSwitcher } from "@/components/advanced-theme-switcher";
 import { cn } from "@/lib/utils";
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 function BoltLogo() {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/android-chrome-192x192.png"
+      src={`${basePath}/android-chrome-192x192.png`}
       alt="BOLT Value Summary"
       width={36}
       height={36}
