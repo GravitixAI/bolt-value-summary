@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set SOURCE=L:\Dev\Projects\bolt-value-summary\.next\standalone
+set SOURCE=%~dp0..\.next\standalone
 set DEST=C:\inetpub\wwwroot\bolt\bolt-value-summary
 
 echo.
