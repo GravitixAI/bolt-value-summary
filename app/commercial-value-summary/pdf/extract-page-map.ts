@@ -11,8 +11,10 @@ export async function extractPageMap(blob: Blob): Promise<Map<number, number>> {
   const pdfjsLib = await import("pdfjs-dist");
 
   // Point at the worker file served from /public (copied from node_modules at build time).
+  // basePath must be included — workerSrc is fetched directly by the browser.
   if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `${basePath}/pdf.worker.min.mjs`;
   }
 
   const arrayBuffer = await blob.arrayBuffer();

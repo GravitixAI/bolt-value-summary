@@ -52,14 +52,27 @@ Next.js automatically prepends `basePath` to paths used through its own APIs (`<
 | `metadata` `icons` / `manifest` in `layout.tsx` | `url: "/favicon.png"` | prefix with `NEXT_PUBLIC_BASE_PATH` |
 | `public/site.webmanifest` icon `src` values | `"src": "/android-chrome-192x192.png"` | hardcode full sub-path |
 | Raw `<img src="..." />` in components | `src="/android-chrome-192x192.png"` | prefix `src` with `NEXT_PUBLIC_BASE_PATH` |
+| `@react-pdf/renderer` image URLs | `window.location.origin + "/logo.png"` | append `NEXT_PUBLIC_BASE_PATH` between origin and filename |
+| Relative API URLs used as image `src` (e.g. `/api/property-image?...`) | `/api/property-image?path=...` | prefix with `window.location.origin + NEXT_PUBLIC_BASE_PATH` |
+| `pdfjs-dist` `GlobalWorkerOptions.workerSrc` | `"/pdf.worker.min.mjs"` | prefix with `NEXT_PUBLIC_BASE_PATH` |
 
-**Step 1 — add `NEXT_PUBLIC_BASE_PATH` to `.env.local`:**
+**Step 1 — configure `.env.local` (dev machine):**
 
 ```env
+# Inlined at build time — must match basePath in next.config.ts
 NEXT_PUBLIC_BASE_PATH=/bolt-value-summary
+
+# Must be empty so the built bundle uses relative API paths and works on any domain
+NEXT_PUBLIC_API_BASE_URL=
+
+# NOT inlined — read at dev-server startup only. Tells next.config.ts rewrites()
+# where to forward /bolt-rest-engine/* requests during local development.
+BOLT_REST_ENGINE_DEV_URL=https://boltdev.cadcollin.org
 ```
 
-> `NEXT_PUBLIC_` variables are inlined at **build time**. This value must be present when `pnpm build` runs, and must match the `basePath` in `next.config.ts`.
+> `NEXT_PUBLIC_` variables are inlined at **build time**. `NEXT_PUBLIC_BASE_PATH` must be present when `pnpm build` runs and match `basePath` in `next.config.ts`. `NEXT_PUBLIC_API_BASE_URL` must remain **empty** so API calls stay relative and work on any domain without rebuilding.
+
+> `BOLT_REST_ENGINE_DEV_URL` is a private (non-`NEXT_PUBLIC_`) variable — it is never inlined into the bundle. It is only read by `next.config.ts` at dev-server startup to proxy `/bolt-rest-engine/*` to the remote dev API, mirroring what IIS does in production.
 
 **Step 2 — prefix raw paths in code:**
 
@@ -116,6 +129,22 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 ```
 
 > Keep the `eslint-disable` comment — it documents that the raw `<img>` is intentional and that the basePath prefix is handling what `next/image` would normally do.
+
+**Step 5 — fix `@react-pdf/renderer` image URLs:**
+
+`@react-pdf/renderer` fetches images via HTTP at render time and requires a full absolute URL. `window.location.origin` gives only the domain — it does not include the sub-path. Append `NEXT_PUBLIC_BASE_PATH` between the origin and the filename:
+
+```ts
+// Bad — fetches from domain root
+const LOGO_URL = `${window.location.origin}/ccad-logo.png`;
+
+// Good — includes the sub-path
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const LOGO_URL =
+  typeof window !== "undefined"
+    ? `${window.location.origin}${basePath}/ccad-logo.png`
+    : `${basePath}/ccad-logo.png`;
+```
 
 **Do not use `<link rel="preload">` for theme CSS** — Next.js does not rewrite its `href`, and the browser will warn that the preloaded resource was not used within a few seconds of the load event (because the theme provider injects the stylesheet client-side after load). Remove any such preload tags; the theme provider handles loading on its own.
 
@@ -192,11 +221,18 @@ PORT=3014
 # Logging
 LOG_LEVEL=info
 
-# API base URL — leave empty in production (IIS proxies /bolt-rest-engine/* locally)
+# NEXT_PUBLIC_API_BASE_URL must be empty — all API calls use relative paths so the app
+# works on any domain without rebuilding. IIS proxies /bolt-rest-engine/* to localhost:3006.
 NEXT_PUBLIC_API_BASE_URL=
+
+# Used by the server-side health check route (app/api/health/route.ts) which cannot use
+# relative URLs. Defaults to http://localhost:3006 if not set.
+BOLT_REST_ENGINE_URL=http://localhost:3006
 ```
 
-> `NEXT_PUBLIC_API_BASE_URL` is empty in production. The app makes relative requests to `/bolt-rest-engine/api/...` which IIS proxies to `http://localhost:3006/bolt-rest-engine/...` via the existing root `web.config` rule.
+> `NEXT_PUBLIC_API_BASE_URL` is intentionally empty. Client-side fetch calls use relative paths (`/bolt-rest-engine/api/...`) which IIS proxies to `http://localhost:3006/bolt-rest-engine/...`. This means the built bundle works on any domain — dev, staging, or production — without rebuilding.
+
+> **Do not set `NEXT_PUBLIC_API_BASE_URL` to a hardcoded domain.** Because `NEXT_PUBLIC_` variables are inlined at build time, setting it to `https://boltdev.cadcollin.org` would bake that domain permanently into the bundle and break the app on any other server.
 
 ---
 
@@ -329,6 +365,7 @@ node server.js
 
 ### `pdf.worker.min.mjs` 404
 - Confirm `public\pdf.worker.min.mjs` was copied to the server alongside `server.js`
+- If the file is present but still 404s, the `workerSrc` path is missing the basePath prefix — `GlobalWorkerOptions.workerSrc` must be set to `` `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/pdf.worker.min.mjs` `` not `/pdf.worker.min.mjs`
 
 ### Theme not loading
 - Confirm `public\themes\` was copied to the server
@@ -343,6 +380,12 @@ node server.js
 - Symptom: `GET /bolt-value-summary/_next/image?url=%2Fimage.png&w=48&q=75 500`
 - Cause: `next/image` routes the image through its optimizer, which constructs the `url` query parameter without the `basePath` prefix
 - Fix: switch back to a raw `<img>` with `src` prefixed by `process.env.NEXT_PUBLIC_BASE_PATH` — do not use `next/image` for static assets under a sub-path in this version
+
+### PDF image assets return 404 (`@react-pdf/renderer`)
+- Symptom: `GET https://domain.com/ccad-logo.png 404` or `GET https://domain.com/api/property-image?path=... 404` when generating a PDF
+- Cause: `window.location.origin` returns only the domain — it does not include the `/bolt-value-summary` sub-path. Any URL built from origin alone will miss the sub-path prefix
+- Fix: always construct image URLs as `` `${window.location.origin}${basePath}/...` `` where `basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ""`
+- This applies to both static assets (e.g. `ccad-logo.png`) and API-proxied images (e.g. `/api/property-image?path=...`)
 
 ### CSS / theme assets load from the wrong path (domain root instead of `/bolt-value-summary/`)
 - Symptom: browser requests `https://domain/themes/usa.css` instead of `https://domain/bolt-value-summary/themes/usa.css`

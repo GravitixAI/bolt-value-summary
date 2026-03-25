@@ -2,11 +2,12 @@ import { View, Text, Image } from "@react-pdf/renderer";
 import * as React from "react";
 
 // Absolute URL needed for @react-pdf/renderer to fetch the logo at render time.
-// In production this will be the app's own origin; in dev we reference localhost.
+// Must include the basePath sub-path — window.location.origin alone omits it.
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const LOGO_URL =
   typeof window !== "undefined"
-    ? `${window.location.origin}/ccad-logo.png`
-    : "/ccad-logo.png";
+    ? `${window.location.origin}${basePath}/ccad-logo.png`
+    : `${basePath}/ccad-logo.png`;
 
 export function PdfHeader() {
   return (

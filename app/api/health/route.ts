@@ -25,7 +25,13 @@ export async function GET(): Promise<NextResponse<HealthResponse>> {
   // This app has no direct database connection — data comes from the REST engine via IIS proxy.
   try {
     const apiStart = Date.now();
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+    // Server-side fetch requires an absolute URL — relative paths don't work without a host.
+    // In dev, BOLT_REST_ENGINE_DEV_URL points to the remote dev server.
+    // In production, the REST engine is always on localhost:3006 on the same machine.
+    const base =
+      process.env.BOLT_REST_ENGINE_DEV_URL ??
+      process.env.BOLT_REST_ENGINE_URL ??
+      "http://localhost:3006";
     const res = await fetch(`${base}/bolt-rest-engine/api/health`, {
       signal: AbortSignal.timeout(5000),
     });

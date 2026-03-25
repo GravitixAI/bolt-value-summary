@@ -15,8 +15,13 @@ export interface GalleryEntry {
   propIds: number[];
 }
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+// @react-pdf/renderer requires absolute URLs to fetch images at render time.
+// window.location.origin alone omits the sub-path, so basePath must be included.
 function imageProxyUrl(uncPath: string): string {
-  return `/api/property-image?path=${encodeURIComponent(uncPath)}`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return `${origin}${basePath}/api/property-image?path=${encodeURIComponent(uncPath)}`;
 }
 
 interface RawItem {
@@ -26,6 +31,8 @@ interface RawItem {
 
 interface FingerprintedItem extends RawItem {
   fingerprint: Float32Array | null;
+  /** Transcoded baseline JPEG data URL, or the original proxy URL if transcoding failed. */
+  imageSrc: string;
 }
 
 /** Step 1: path-based dedup */
@@ -46,25 +53,49 @@ function buildRawItems(records: { PropID: number; MainImagePath: string | null }
   }));
 }
 
-/** Step 2: compute a grayscale thumbnail fingerprint for one image URL */
-function computeFingerprint(src: string): Promise<Float32Array> {
+interface FingerprintResult {
+  fingerprint: Float32Array;
+  /** Baseline RGB JPEG data URL — safe for @react-pdf/renderer regardless of original encoding. */
+  dataUrl: string;
+}
+
+/**
+ * Step 2: load image, transcode to a baseline JPEG via canvas, and compute a
+ * grayscale thumbnail fingerprint — all in a single pass.
+ *
+ * Transcoding through canvas normalises CMYK, progressive, and non-standard
+ * JPEGs that @react-pdf/renderer cannot decode, which would cause the image
+ * to silently disappear in the generated PDF.
+ */
+function computeFingerprintAndTranscode(src: string): Promise<FingerprintResult> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = THUMB_SIZE;
-      canvas.height = THUMB_SIZE;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("No 2D context"));
-      ctx.drawImage(img, 0, 0, THUMB_SIZE, THUMB_SIZE);
-      const { data } = ctx.getImageData(0, 0, THUMB_SIZE, THUMB_SIZE);
+      // Full-size canvas for transcoding to a safe baseline JPEG
+      const full = document.createElement("canvas");
+      full.width = img.naturalWidth;
+      full.height = img.naturalHeight;
+      const fullCtx = full.getContext("2d");
+      if (!fullCtx) return reject(new Error("No 2D context"));
+      fullCtx.drawImage(img, 0, 0);
+      const dataUrl = full.toDataURL("image/jpeg", 0.92);
+
+      // Thumbnail canvas for fingerprinting
+      const thumb = document.createElement("canvas");
+      thumb.width = THUMB_SIZE;
+      thumb.height = THUMB_SIZE;
+      const thumbCtx = thumb.getContext("2d");
+      if (!thumbCtx) return reject(new Error("No 2D context"));
+      thumbCtx.drawImage(img, 0, 0, THUMB_SIZE, THUMB_SIZE);
+      const { data } = thumbCtx.getImageData(0, 0, THUMB_SIZE, THUMB_SIZE);
       const fp = new Float32Array(THUMB_SIZE * THUMB_SIZE);
       for (let i = 0; i < fp.length; i++) {
         const b = i * 4;
         fp[i] = 0.299 * data[b] + 0.587 * data[b + 1] + 0.114 * data[b + 2];
       }
-      resolve(fp);
+
+      resolve({ fingerprint: fp, dataUrl });
     };
     img.onerror = () => reject(new Error(`Failed to load: ${src}`));
     img.src = src;
@@ -113,18 +144,22 @@ export async function buildFingerprintedGallery(
   if (rawItems.length === 0) return [];
 
   const results = await Promise.allSettled(
-    rawItems.map((item) => computeFingerprint(imageProxyUrl(item.imagePath)))
+    rawItems.map((item) => computeFingerprintAndTranscode(imageProxyUrl(item.imagePath)))
   );
 
-  const withFp: FingerprintedItem[] = rawItems.map((item, i) => ({
-    ...item,
-    fingerprint: results[i].status === "fulfilled"
-      ? (results[i] as PromiseFulfilledResult<Float32Array>).value
-      : null,
-  }));
+  const withFp: FingerprintedItem[] = rawItems.map((item, i) => {
+    const proxyUrl = imageProxyUrl(item.imagePath);
+    const result = results[i];
+    return {
+      ...item,
+      fingerprint: result.status === "fulfilled" ? result.value.fingerprint : null,
+      // Fall back to the proxy URL if canvas transcoding failed
+      imageSrc: result.status === "fulfilled" ? result.value.dataUrl : proxyUrl,
+    };
+  });
 
   return mergeByFingerprint(withFp).map((item) => ({
-    imageSrc: imageProxyUrl(item.imagePath),
+    imageSrc: item.imageSrc,
     propIds: item.propIds,
     label:
       item.propIds.length === 1
