@@ -9,16 +9,14 @@ import { cn } from "@/lib/utils";
 
 function BoltLogo() {
   return (
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded bg-gradient-to-br from-red-600 via-amber-500 to-yellow-400">
-      <svg
-        viewBox="0 0 24 24"
-        className="h-5 w-5 text-white drop-shadow-sm"
-        fill="currentColor"
-        aria-hidden
-      >
-        <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z" />
-      </svg>
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/android-chrome-192x192.png"
+      alt="BOLT Value Summary"
+      width={36}
+      height={36}
+      className="shrink-0"
+    />
   );
 }
 

@@ -24,8 +24,8 @@ import {
 const c = {
   black: "#000000",
   darkGray: "#333333",
-  midGray: "#555555",
-  lightGray: "#888888",
+  midGray: "#333333",
+  lightGray: "#555555",
   bgMuted: "#f3f4f6",
   bgMutedDark: "#e5e7eb",
   border: "#d1d5db",
@@ -57,6 +57,11 @@ const s = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 6,
     color: c.black,
+  },
+  dateOfValuation: {
+    fontSize: 9,
+    color: c.midGray,
+    marginBottom: 14,
   },
 
   // ── Overview table ──
@@ -250,9 +255,11 @@ function OverviewTablePdf({
 function CaseSectionPdf({
   record: r,
   approachState,
+  year,
 }: {
   record: PropertyRecord;
   approachState: ApproachState;
+  year: string | number;
 }) {
   const isCost = approachState.cost;
   const isIncome = approachState.income;
@@ -261,10 +268,16 @@ function CaseSectionPdf({
   const situsLines = fmtSitus(r.Situs);
 
   return (
-    <View style={s.card} break>
+    <View break>
       {/* Invisible anchor marker for two-pass page detection — do not remove */}
       <Text style={{ fontSize: 0.01, color: "#ffffff", height: 0 }}>{`##PID:${r.PropID}##`}</Text>
 
+      {/* Date of valuation — appears at the top of each case section page */}
+      <Text style={[s.dateOfValuation, { marginBottom: 8 }]}>
+        Date of Valuation: January 1, {year}
+      </Text>
+
+    <View style={s.card}>
       {/* Header */}
       <View style={s.cardHeader}>
         <View style={s.cardHeaderCol}>
@@ -376,6 +389,7 @@ function CaseSectionPdf({
         <Text style={s.dataUnit} />
       </View>
     </View>
+    </View>
   );
 }
 
@@ -444,8 +458,13 @@ export function CommercialValueSummaryPdf({
         <PdfHeader />
 
         {/* Title */}
-        <Text style={[s.sectionTitle, { marginBottom: 10 }]}>
-          ARB Commercial Value Summary — {records[0]?.Year ?? ""} Tax Year
+        <Text style={[s.sectionTitle, { marginBottom: 6 }]}>
+          Commercial Value Summary — {records[0]?.Year ?? ""} Tax Year
+        </Text>
+
+        {/* Date of valuation */}
+        <Text style={s.dateOfValuation}>
+          Date of Valuation: January 1, {records[0]?.Year ?? ""}
         </Text>
 
         {/* Grand totals */}
@@ -474,6 +493,7 @@ export function CommercialValueSummaryPdf({
             key={r.PropID}
             record={r}
             approachState={approachStates.get(r.PropID) ?? { cost: false, income: false, market: false }}
+            year={records[0]?.Year ?? ""}
           />
         ))}
 

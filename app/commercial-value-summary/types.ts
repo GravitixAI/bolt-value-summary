@@ -15,6 +15,9 @@ export interface PropertyRecord {
   Land_ApprMethod: string; // "SQ" = per sq ft, else per acre
   LandBuilding_Ratio: number;
 
+  // Neighborhood / sub-market
+  Nbhd: string | null;
+
   // Improvement
   SubMarket: string;
   Imprv_Type: string;
