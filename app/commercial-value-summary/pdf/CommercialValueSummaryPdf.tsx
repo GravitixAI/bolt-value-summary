@@ -149,18 +149,28 @@ const s = StyleSheet.create({
   grandTotalLabel: { fontSize: 9, fontWeight: "bold", color: c.darkGray },
   grandTotalValue: { fontSize: 9, fontWeight: "bold", color: c.primary },
 
-  // ── Gallery ──
-  galleryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  // ── Gallery (1 rotated image per page) ──
   galleryCard: {
-    width: "47%",
+    width: "100%",
     borderWidth: 1,
     borderColor: c.border,
     borderRadius: 4,
-    padding: 6,
-    marginBottom: 8,
+    padding: 8,
+    alignItems: "center",
   },
-  galleryLabel: { fontSize: 8, fontWeight: "bold", marginBottom: 4, color: c.darkGray },
-  galleryImage: { width: "100%", height: 140, objectFit: "contain" },
+  galleryLabel: {
+    fontSize: 9,
+    fontWeight: "bold",
+    marginBottom: 6,
+    color: c.darkGray,
+    width: "100%",
+  },
+  galleryImage: {
+    width: 500,
+    height: 500,
+    objectFit: "contain",
+    transform: "rotate(90deg)",
+  },
 });
 
 // ---------------------------------------------------------------------------
@@ -406,17 +416,15 @@ function GalleryPagePdf({ entries }: { entries: GalleryEntry[] }) {
   if (entries.length === 0) return null;
   return (
     <>
-      <View break>
-        <Text style={s.sectionTitle}>Property Images</Text>
-        <View style={s.galleryGrid}>
-          {entries.map((entry) => (
-            <View key={entry.imageSrc} style={s.galleryCard}>
-              <Text style={s.galleryLabel}>{entry.label}</Text>
-              <Image src={entry.imageSrc} style={s.galleryImage} />
-            </View>
-          ))}
+      {entries.map((entry, i) => (
+        <View key={entry.imageSrc} break>
+          {i === 0 && <Text style={s.sectionTitle}>Property Images</Text>}
+          <View style={s.galleryCard} wrap={false}>
+            <Text style={s.galleryLabel}>{entry.label}</Text>
+            <Image src={entry.imageSrc} style={s.galleryImage} />
+          </View>
         </View>
-      </View>
+      ))}
     </>
   );
 }

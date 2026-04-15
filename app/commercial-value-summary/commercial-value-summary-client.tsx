@@ -115,6 +115,16 @@ export function CommercialValueSummaryClient() {
     });
   }
 
+  const allIncluded = records.length > 0 && records.every((r) => included.has(r.PropID));
+
+  function toggleAll() {
+    if (allIncluded) {
+      setIncluded(new Set());
+    } else {
+      setIncluded(new Set(records.map((r) => r.PropID)));
+    }
+  }
+
   function scrollToProp(propId: number) {
     const el = document.getElementById(`prop-${propId}`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -233,6 +243,29 @@ export function CommercialValueSummaryClient() {
 
             {activeTab === "summary" && (
               <div className="space-y-8">
+                {records.length > 1 && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={allIncluded}
+                      onClick={toggleAll}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                        allIncluded ? "bg-primary" : "bg-muted-foreground/40"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-background shadow-sm transition-transform ${
+                          allIncluded ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                    <span className="text-sm text-muted-foreground">
+                      {allIncluded ? "Deselect All" : "Select All"}
+                    </span>
+                  </div>
+                )}
+
                 {records.length > 1 && (
                   <OverviewTable
                     records={records}
