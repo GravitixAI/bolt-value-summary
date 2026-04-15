@@ -182,11 +182,7 @@ function CaseSectionPdf({ record: r }: { record: PropertyRecord }) {
         <Text style={s.totalValue}>{fmtCurrency(r.RecommendedVal)}</Text>
         <Text style={[s.dataUnit, { textAlign: "center" }]}>
           {fmtCurrencyCents(
-            r.Cost_UnitPrice !== 0
-              ? r.Cost_UnitPrice
-              : r.Imprv_GrossBldgArea > 0
-                ? r.RecommendedVal / r.Imprv_GrossBldgArea
-                : 0
+            r.Imprv_GrossBldgArea > 0 ? r.RecommendedVal / r.Imprv_GrossBldgArea : 0
           )} per sq. ft.
         </Text>
       </View>

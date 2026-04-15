@@ -104,11 +104,7 @@ export function SalientFactsCaseSection({ record: r, included, onToggle }: Props
             <DataRow
               label="Price per sq. ft."
               value={fmtCurrencyCents(
-                r.Cost_UnitPrice !== 0
-                  ? r.Cost_UnitPrice
-                  : r.Imprv_GrossBldgArea > 0
-                    ? r.RecommendedVal / r.Imprv_GrossBldgArea
-                    : 0
+                r.Imprv_GrossBldgArea > 0 ? r.RecommendedVal / r.Imprv_GrossBldgArea : 0
               )}
               unit="per sq. ft."
             />

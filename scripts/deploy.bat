@@ -31,6 +31,13 @@ robocopy "%SOURCE%\node_modules" "%DEST%\node_modules" /E /IS /IT /NFL /NDL /NJH
 echo Done.
 echo.
 
+:: Remove stale .next so old hashed chunks don't shadow the new build
+if exist "%DEST%\.next" (
+    echo Removing old .next...
+    rmdir /S /Q "%DEST%\.next"
+    echo Done.
+)
+
 :: Copy .next server bundle and static assets
 echo Copying .next...
 robocopy "%SOURCE%\.next" "%DEST%\.next" /E /IS /IT /NFL /NDL /NJH /NJS
