@@ -149,27 +149,28 @@ const s = StyleSheet.create({
   grandTotalLabel: { fontSize: 9, fontWeight: "bold", color: c.darkGray },
   grandTotalValue: { fontSize: 9, fontWeight: "bold", color: c.primary },
 
-  // ── Gallery (1 rotated image per page) ──
+  // ── Gallery (1 full-width image per page, flex-sized) ──
   galleryCard: {
     width: "100%",
     borderWidth: 1,
     borderColor: c.border,
     borderRadius: 4,
     padding: 8,
-    alignItems: "center",
+    flexGrow: 1,
   },
   galleryLabel: {
     fontSize: 9,
     fontWeight: "bold",
     marginBottom: 6,
     color: c.darkGray,
-    width: "100%",
+  },
+  galleryImageWrap: {
+    flexGrow: 1,
   },
   galleryImage: {
-    width: 500,
-    height: 500,
+    width: "100%",
+    height: "100%",
     objectFit: "contain",
-    transform: "rotate(90deg)",
   },
 });
 
@@ -412,18 +413,28 @@ interface GalleryEntry {
   label: string;
 }
 
-function GalleryPagePdf({ entries }: { entries: GalleryEntry[] }) {
+function GalleryPagesPdf({ entries }: { entries: GalleryEntry[] }) {
   if (entries.length === 0) return null;
   return (
     <>
       {entries.map((entry, i) => (
-        <View key={entry.imageSrc} break>
-          {i === 0 && <Text style={s.sectionTitle}>Property Images</Text>}
-          <View style={s.galleryCard} wrap={false}>
-            <Text style={s.galleryLabel}>{entry.label}</Text>
-            <Image src={entry.imageSrc} style={s.galleryImage} />
+        <Page key={entry.imageSrc} size="LETTER" style={s.page}>
+          <PdfHeader />
+          <View style={{ flexGrow: 1 }}>
+            {i === 0 && <Text style={s.sectionTitle}>Property Images</Text>}
+            <View style={s.galleryCard}>
+              <Text style={s.galleryLabel}>{entry.label}</Text>
+              <View style={s.galleryImageWrap}>
+                <Image src={entry.imageSrc} style={s.galleryImage} />
+              </View>
+            </View>
           </View>
-        </View>
+          <Text
+            style={s.pageNumber}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+            fixed
+          />
+        </Page>
       ))}
     </>
   );
@@ -505,9 +516,6 @@ export function CommercialValueSummaryPdf({
           />
         ))}
 
-        {/* Image gallery */}
-        <GalleryPagePdf entries={galleryEntries} />
-
         {/* Page numbers */}
         <Text
           style={s.pageNumber}
@@ -515,6 +523,9 @@ export function CommercialValueSummaryPdf({
           fixed
         />
       </Page>
+
+      {/* Image gallery — separate Pages to isolate flex context */}
+      <GalleryPagesPdf entries={galleryEntries} />
     </Document>
   );
 }
